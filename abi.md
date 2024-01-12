@@ -129,6 +129,31 @@ Reference types in ports shall be logically split out from aggregates and named 
 
 ## On Layers
 
+Each layer is enabled by defining a Verilog text macro with the following name where `module` is the name of the public module, `root` is the name of the root-level layer and `nested` is the name of zero or more nested layers:
+
+``` ebnf
+name = "layer_" , module , "_" , root , { "_" , nested } , ".sv" ;
+```
+
+To enable a layer, Verilog is compiled with this layer enabled.
+E.g., consider the following circuit defining three layers, `A`, `A.B`, and `C`, and one public module, `Foo`:
+
+``` firrtl
+circuit:
+  layer A:
+    layer B:
+  layer C:
+  public module Foo:
+```
+
+The Verilog produced by a FIRRTL compiler can be compiled with any combination of the following Verilog text macros defined to have the stated effect:
+
+-   `layer_Foo_A` has the effect of enabling layer `A`
+-   `layer_Foo_A_B` has the effect of enabling layer `B` and, transitively, layer `A`
+-   `layer_Foo_C` has the effect of enabling layer `C`
+
+Enabling a layer enables all logic associated with that layer as well as defines Verilog text macros that define the names of layer-associated probes.
+
 The lowering convention of a declared layer specifies how a layer and all its associated layer blocks will be lowered.
 Currently, the only lowering convention that must be supported is `"bind"`{.firrtl.}.
 FIRRTL compilers may implement other non-standard lowering conventions.
@@ -174,7 +199,7 @@ When compiled to Verilog, this will produce six bind files:
     layers_Baz_Layer1_Layer2.sv
     layers_Baz_Layer1_Layer2_Layer3_.sv
 
-The contents of each binding files must have the effect of including all code defined in all of the layer blocks associated with a layer and any of its parent layer's layer blocks.
+The contents of each binding files must have, when compiled with the appropriate Verilog text macro to enable the layer, the effect of including all code defined in all of the layer blocks associated with a layer and any of its parent layer's layer blocks.
 
 #### Example
 
@@ -266,11 +291,19 @@ The first bindings file is associated with `Layer1`:
 
 ``` verilog
 // Inside file "layers_Foo_Layer1.sv" :
-`ifndef layers_Foo_Layer1
-`define layers_Foo_Layer1
+`ifdef layer_Foo_Layer1
+
+`ifndef layerbind_Foo_Layer1_Foo_layer1
+`define layerbind_Foo_Layer1_Foo_layer1
 bind Foo Foo_Layer1 layer1(.bar_notA(Foo.bar.layer1.notA));
+`endif // layerbind_Foo_Layer1_Foo_layer1
+
+`ifndef layerbind_Bar_Layer1_Bar_layer1
+`define layerbind_Bar_Layer1_Bar_layer1
 bind Bar Bar_Layer1 layer1(.a(Bar.a));
-`endif
+`endif // layerbind_Bar_Layer1_Bar_layer1
+
+`endif // layer_Foo_Layer1
 ```
 
 The second bindings file is associated with `Layer2`.
@@ -278,12 +311,19 @@ This layer, because it depends on `Layer1` being available, will automatically b
 
 ``` verilog
 // Inside file "layers_Foo_Layer1_Layer2.sv" :
-`ifndef layers_Foo_Layer1_Layer2
-`define layers_Foo_Layer1_Layer2
+`ifdef layer_Foo_Layer1_Layer2
+`ifndef layer_Foo_Layer1
+`define layer_Foo_Layer1
+`endif // layer_Foo_Layer1
 `include "layers_Foo_Layer1.sv"
+
+`ifndef layerbind_Foo_Layer1_Layer2
+`define layerbind_Foo_Layer1_Layer2
 bind Foo Foo_Layer1_Layer2 layer1_layer2(.bar_notNotA(Foo.bar.layer1_layer2.notNotA));
 bind Bar Bar_Layer1_Layer2 layer1_layer2(.notA(Bar.layer1.notA));
-`endif
+`endif // layerbind_Foo_Layer1_Layer2
+
+`endif // layer_Foo_Layer1_Layer2
 ```
 
 The `` `ifdef ``{.verilog} guards enable any combination of the bind files to be included while still producing legal SystemVerilog.

@@ -2261,13 +2261,38 @@ module DUT :
 ## Probes and Layers
 
 `Probe`{.firrtl} and `RWProbe`{.firrtl} types may be associated with a layer (see [@sec:layers]).
-When associated with a layer, the probe type may only be driven from that layer.
 
-For example:
+For example, the following shows two probe types associated with different layers.
 
 ``` firrtl
-Probe<UInt<8>, A.B>     ; A.B is a layer
-RWProbe<UInt<8>, A.B>
+Probe<UInt<8>, A>     ; A is a layer
+RWProbe<UInt<8>, A.B> ; A.B is another layer
+```
+
+When associated with a layer, the probe may only be used by layer blocks of the same layer or children layers.
+The following example shows a probe, `a`{.firrtl}, associated with layer `A`{.firrtl}.
+This is exported from module `Bar`{.firrtl} and read in module `Baz`{.firrtl}.
+However, it is only legal to `define`{.firrtl} or `read`{.firrtl} this probe from a layer block associated with layer `A`{.firrtl}.
+
+``` firrtl
+FIRRTL version 4.0.0
+circuit:
+  layer A bind:
+
+  module Bar:
+    output a: Probe<UInt<1>, A>
+
+    node b = UInt<1>(0)
+
+    layerblock A:
+      define a = probe(b)
+
+  module Foo:
+    inst bar of Bar
+
+    layerblock A:
+
+      node c = read(bar.a)
 ```
 
 For details on how probes are lowered, see the FIRRTL ABI Specification.
