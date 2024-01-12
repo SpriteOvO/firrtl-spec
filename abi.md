@@ -132,7 +132,7 @@ Reference types in ports shall be logically split out from aggregates and named 
 Each layer is enabled by defining a Verilog text macro with the following name where `module` is the name of the public module, `root` is the name of the root-level layer and `nested` is the name of zero or more nested layers:
 
 ``` ebnf
-name = "layer_" , module , "_" , root , { "_" , nested } , ".sv" ;
+name = "layer_" , module , "_" , root , { "_" , nested } ;
 ```
 
 To enable a layer, Verilog is compiled with this layer enabled.
